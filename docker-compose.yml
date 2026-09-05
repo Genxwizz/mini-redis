@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  mini-redis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mini-redis-server
+    ports:
+      - "6379:6379"
+      - "8080:8080"
+    volumes:
+      - ./append.aof:/app/append.aof
+    restart: unless-stopped

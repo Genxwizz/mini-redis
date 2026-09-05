@@ -1,0 +1,14 @@
+target/
+.idea/
+.vscode/
+*.class
+*.log
+append.aof
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Local Maven files
+.mvn_bin/

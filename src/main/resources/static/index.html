@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Redis Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #090d16;
+            --bg-card: #111827;
+            --bg-card-glass: rgba(17, 24, 39, 0.8);
+            --bg-input: #1f2937;
+            --border-color: #1e293b;
+            --border-highlight: #334155;
+            
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.25);
+            --accent-cyan: #38bdf8;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #a855f7;
+
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-body);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(239, 68, 68, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--accent-red-glow);
+        }
+
+        .brand-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .status-pills {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+
+        .pill-green {
+            color: var(--accent-green);
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Metric Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .metric-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-2px);
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-main);
+        }
+
+        .metric-footer {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Main Content Layout */
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .grid-2col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.85rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Terminal Console */
+        .terminal-box {
+            background: #060911;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            height: 340px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .terminal-header {
+            background: #0d1322;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .t-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-body {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            font-size: 0.88rem;
+        }
+
+        .term-line {
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .term-cmd {
+            color: var(--accent-cyan);
+        }
+
+        .term-res-simple { color: var(--accent-green); }
+        .term-res-bulk { color: #e2e8f0; }
+        .term-res-int { color: var(--accent-yellow); }
+        .term-res-arr { color: var(--accent-purple); }
+        .term-res-err { color: var(--accent-red); }
+
+        .terminal-input-bar {
+            display: flex;
+            align-items: center;
+            background: #0b101d;
+            border-top: 1px solid var(--border-color);
+            padding: 0.5rem 0.85rem;
+            gap: 0.5rem;
+        }
+
+        .term-prompt {
+            color: var(--accent-red);
+            font-weight: 600;
+        }
+
+        .term-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* Forms & Inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        label {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            gap: 0.5rem;
+        }
+
+        .btn-red {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            box-shadow: 0 4px 12px var(--accent-red-glow);
+        }
+
+        .btn-red:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-blue {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-blue:hover {
+            opacity: 0.9;
+        }
+
+        .btn-danger-outline {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+
+        .btn-danger-outline:hover {
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        /* Key Explorer Table */
+        .keys-table-container {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        th {
+            background: var(--bg-card);
+            padding: 0.65rem 0.85rem;
+            text-align: left;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 0.6rem 0.85rem;
+            border-bottom: 1px solid var(--border-color);
+            color: #e2e8f0;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .action-icon {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .action-icon:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div>
+                <h1 class="brand-title">Mini Redis Dashboard</h1>
+                <p class="brand-subtitle">Standalone Executable Server Architecture</p>
+            </div>
+        </div>
+        <div class="status-pills">
+            <div class="pill pill-green">
+                <span class="dot"></span>
+                <span>Server Running</span>
+            </div>
+            <div class="pill">
+                <span>TCP Port: <strong>6379</strong></span>
+            </div>
+            <div class="pill">
+                <span>HTTP Port: <strong>8080</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">Total Keys</div>
+            <div class="metric-value" id="stat-keys">0</div>
+            <div class="metric-footer">InMemory ConcurrentHashMap</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Server Uptime</div>
+            <div class="metric-value" id="stat-uptime">0s</div>
+            <div class="metric-footer">Active Runtime</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">AOF Persistence</div>
+            <div class="metric-value" style="color: var(--accent-green)">append.aof</div>
+            <div class="metric-footer">Auto-sync on writes</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Redis Protocol</div>
+            <div class="metric-value" style="color: var(--accent-cyan)">RESP 2.0</div>
+            <div class="metric-footer">Native TCP Socket</div>
+        </div>
+    </div>
+
+    <!-- Main Grid: Terminal Console & Quick Controls -->
+    <div class="grid-2col">
+        <!-- Interactive Terminal -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    Redis CLI Terminal
+                </div>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">Type commands & press Enter</span>
+            </div>
+
+            <div class="terminal-box">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <div class="t-dot" style="background:#ef4444"></div>
+                        <div class="t-dot" style="background:#f59e0b"></div>
+                        <div class="t-dot" style="background:#10b981"></div>
+                    </div>
+                    <span>mini-redis-cli (127.0.0.1:6379)</span>
+                </div>
+                <div class="terminal-body" id="term-body">
+                    <div class="term-line" style="color: var(--text-muted)">Welcome to Mini Redis CLI Terminal. Try commands: <span class="term-cmd">PING</span>, <span class="term-cmd">SET key val</span>, <span class="term-cmd">GET key</span>, <span class="term-cmd">KEYS *</span>, <span class="term-cmd">TTL key</span>, <span class="term-cmd">INCR counter</span>.</div>
+                </div>
+                <div class="terminal-input-bar">
+                    <span class="term-prompt">redis&gt;</span>
+                    <input type="text" class="term-input" id="term-input" placeholder="SET mykey 'Hello World'" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Form Operations -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    Quick Command Builder
+                </div>
+            </div>
+
+            <!-- SET Form -->
+            <form id="set-form" style="display:flex; flex-direction:column; gap:0.75rem;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+                    <div class="form-group">
+                        <label for="set-key">Key</label>
+                        <input type="text" id="set-key" placeholder="user:100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="set-val">Value</label>
+                        <input type="text" id="set-val" placeholder="John Doe" required>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; align-items:end;">
+                    <div class="form-group">
+                        <label for="set-ttl">TTL (Seconds, Optional)</label>
+                        <input type="number" id="set-ttl" placeholder="60">
+                    </div>
+                    <button type="submit" class="btn btn-red">Execute SET</button>
+                </div>
+            </form>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 0.25rem 0;">
+
+            <!-- GET / DEL Form -->
+            <form id="get-del-form" style="display:flex; flex-direction:column; gap:0.75rem;">
+                <div class="form-group">
+                    <label for="gd-key">Key to Query / Delete</label>
+                    <input type="text" id="gd-key" placeholder="user:100" required>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+                    <button type="button" class="btn btn-blue" onclick="quickGet()">Execute GET</button>
+                    <button type="button" class="btn btn-danger-outline" onclick="quickDel()">Execute DEL</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Active Keys Section -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-yellow)" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                Key Explorer & Database Keys
+            </div>
+            <div style="display:flex; gap:0.75rem;">
+                <input type="text" id="key-search" placeholder="Search keys..." style="padding:0.4rem 0.75rem; font-size:0.8rem; width:180px;" oninput="filterKeysTable()">
+                <button class="btn btn-danger-outline" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="flushDatabase()">Flush DB</button>
+            </div>
+        </div>
+
+        <div class="keys-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Key Name</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="keys-tbody">
+                    <tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No keys stored in memory yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const termBody = document.getElementById('term-body');
+    const termInput = document.getElementById('term-input');
+    let commandHistory = [];
+    let historyIdx = -1;
+    let currentKeysList = [];
+
+    // On Load & Periodic Refresh
+    window.addEventListener('DOMContentLoaded', () => {
+        refreshStats();
+        setInterval(refreshStats, 3000);
+    });
+
+    // Terminal Input Event Listener
+    termInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const cmd = termInput.value.trim();
+            if (cmd) {
+                commandHistory.push(cmd);
+                historyIdx = commandHistory.length;
+                executeCliCommand(cmd);
+                termInput.value = '';
+            }
+        } else if (e.key === 'ArrowUp') {
+            if (historyIdx > 0) {
+                historyIdx--;
+                termInput.value = commandHistory[historyIdx];
+            }
+        } else if (e.key === 'ArrowDown') {
+            if (historyIdx < commandHistory.length - 1) {
+                historyIdx++;
+                termInput.value = commandHistory[historyIdx];
+            } else {
+                historyIdx = commandHistory.length;
+                termInput.value = '';
+            }
+        }
+    });
+
+    async function executeCliCommand(cmdStr) {
+        appendTermLine(`redis> ${cmdStr}`, 'term-cmd');
+
+        try {
+            const res = await fetch('/api/exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: cmdStr })
+            });
+            const data = await res.json();
+
+            if (data.type === 'ERROR') {
+                appendTermLine(`(error) ${data.error}`, 'term-res-err');
+            } else if (data.type === 'SIMPLE') {
+                appendTermLine(data.value, 'term-res-simple');
+            } else if (data.type === 'BULK') {
+                appendTermLine(data.value === null ? '(nil)' : `"${data.value}"`, 'term-res-bulk');
+            } else if (data.type === 'INTEGER') {
+                appendTermLine(`(integer) ${data.integer}`, 'term-res-int');
+            } else if (data.type === 'ARRAY') {
+                if (!data.array || data.array.length === 0) {
+                    appendTermLine('(empty list or set)', 'term-res-arr');
+                } else {
+                    data.array.forEach((item, idx) => {
+                        appendTermLine(`${idx + 1}) "${item}"`, 'term-res-arr');
+                    });
+                }
+            }
+            refreshStats();
+        } catch (err) {
+            appendTermLine(`Network error: ${err.message}`, 'term-res-err');
+        }
+    }
+
+    function appendTermLine(text, cssClass) {
+        const div = document.createElement('div');
+        div.className = `term-line ${cssClass}`;
+        div.textContent = text;
+        termBody.appendChild(div);
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    // SET Form Submit
+    document.getElementById('set-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const key = document.getElementById('set-key').value.trim();
+        const val = document.getElementById('set-val').value;
+        const ttl = document.getElementById('set-ttl').value.trim();
+
+        let cmd = `SET "${key}" "${val}"`;
+        if (ttl && parseInt(ttl) > 0) {
+            cmd += ` EX ${ttl}`;
+        }
+        executeCliCommand(cmd);
+    });
+
+    function quickGet() {
+        const key = document.getElementById('gd-key').value.trim();
+        if (key) {
+            executeCliCommand(`GET "${key}"`);
+        }
+    }
+
+    function quickDel() {
+        const key = document.getElementById('gd-key').value.trim();
+        if (key) {
+            executeCliCommand(`DEL "${key}"`);
+        }
+    }
+
+    function flushDatabase() {
+        if (confirm('Are you sure you want to flush all keys in the database?')) {
+            executeCliCommand('FLUSHDB');
+        }
+    }
+
+    async function refreshStats() {
+        try {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('stat-keys').textContent = data.totalKeys;
+            document.getElementById('stat-uptime').textContent = formatUptime(data.uptimeSeconds);
+
+            currentKeysList = data.keys || [];
+            renderKeysTable(currentKeysList);
+        } catch (ignored) {}
+    }
+
+    function formatUptime(seconds) {
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+    }
+
+    function renderKeysTable(keys) {
+        const tbody = document.getElementById('keys-tbody');
+        const filter = document.getElementById('key-search').value.toLowerCase();
+        const filtered = keys.filter(k => k.toLowerCase().includes(filter));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No matching keys found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(k => `
+            <tr>
+                <td><strong>${escapeHtml(k)}</strong></td>
+                <td><span style="color:var(--accent-cyan)">string</span></td>
+                <td>
+                    <button class="btn btn-blue" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="executeCliCommand('GET \\'${escapeHtml(k)}\\'')">GET</button>
+                    <button class="btn btn-blue" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="executeCliCommand('TTL \\'${escapeHtml(k)}\\'')">TTL</button>
+                    <button class="btn btn-danger-outline" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="executeCliCommand('DEL \\'${escapeHtml(k)}\\'')">DEL</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function filterKeysTable() {
+        renderKeysTable(currentKeysList);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+
+</body>
+</html>
