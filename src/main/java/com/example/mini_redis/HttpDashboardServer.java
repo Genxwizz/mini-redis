@@ -20,12 +20,19 @@ public class HttpDashboardServer {
     private final long startTime;
     private HttpServer server;
 
-    public HttpDashboardServer(int port, Database database, CommandExecutor commandExecutor) {
+public HttpDashboardServer(int port, Database database, CommandExecutor commandExecutor) {
+    String renderPort = System.getenv("PORT");
+
+    if (renderPort != null && !renderPort.isBlank()) {
+        this.port = Integer.parseInt(renderPort);
+    } else {
         this.port = port;
-        this.database = database;
-        this.commandExecutor = commandExecutor;
-        this.startTime = System.currentTimeMillis();
     }
+
+    this.database = database;
+    this.commandExecutor = commandExecutor;
+    this.startTime = System.currentTimeMillis();
+}
 
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 0);
